@@ -300,6 +300,15 @@ button:focus-visible,[role="switch"]:focus-visible{outline:1px solid var(--gold)
   border-bottom:1px solid rgba(255,230,220,.28);align-self:center}
 .th-actions{align-items:center;gap:8px}
 
+.week{display:flex;gap:10px;justify-content:center;margin-top:4px}
+.wd{display:flex;flex-direction:column;align-items:center;gap:5px}
+.wl{font-family:var(--f-sc);font-size:.66rem;letter-spacing:.1em;color:rgba(255,226,214,.65)}
+.wb{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(10,5,6,.7);box-sizing:border-box;transition:background .4s}
+.wd.part .wb{background:linear-gradient(90deg,#0a0506 50%,transparent 50%)}
+.wd.done .wb{background:radial-gradient(circle at 35% 30%,#4a2628,#0a0506 70%);border-color:#0a0506}
+.wd.today .wl{color:var(--bone)}
+.wd.today .wb{box-shadow:0 0 0 3px rgba(255,226,214,.3)}
+.streak{margin:2px 0 4px;font-family:var(--f-sc);font-size:.78rem;letter-spacing:.16em;color:rgba(255,232,220,.82);text-transform:lowercase}
 /* nave */
 #nave{padding:0;gap:0;opacity:1;transition:visibility 0s linear .7s}
 #nave.is-active{transition:visibility 0s}
@@ -408,6 +417,8 @@ button:focus-visible,[role="switch"]:focus-visible{outline:1px solid var(--gold)
       <h1 class="th-title">Rosarium</h1>
       <p class="th-set" id="thSet">The Glorious Mysteries</p>
       <ul class="th-list" id="thList"></ul>
+      <div class="week" id="week" aria-label="This week"></div>
+      <p class="streak" id="streak"></p>
       <div class="th-actions">
         <button id="btnBegin" class="begin" type="button" aria-label="Begin"><span class="orb"><span class="star"></span></span><span class="begin-label">begin</span></button>
         <button id="btnResume" class="btn-ghost" type="button" hidden>Continue</button>
@@ -780,7 +791,40 @@ const now = new Date(), today = now.getDay();
 const dateKey = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
 const opts = {}; OPTIONS.forEach(o => opts[o.k] = o.on);
 Object.assign(opts, store.get("opts", {}));
-const feel = Object.assign({ sound:false, haptic:true }, store.get("feel", {}));
+const feel = Object.assign({ sound:false, haptic:true, ambient:false }, store.get("feel", {}));
+const log = store.get("log", {});
+const keyOf = d => `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+function streakCount(){ let n = 0; const d = new Date(); const e = () => log[keyOf(d)] && log[keyOf(d)].done; if (!e()) d.setDate(d.getDate() - 1); while (e()){ n++; d.setDate(d.getDate() - 1); } return n; }
+function paintWeek(){
+  const wk = $("#week"); if (!wk) return; wk.innerHTML = "";
+  const base = new Date(); base.setDate(base.getDate() - base.getDay());
+  "SMTWTFS".split("").forEach((l, i) => {
+    const d = new Date(base); d.setDate(base.getDate() + i);
+    const e = log[keyOf(d)], c = document.createElement("div");
+    c.className = "wd" + (e && e.done ? " done" : e && e.p > 0.05 ? " part" : "") + (i === today ? " today" : "");
+    c.innerHTML = `<span class="wl">${l}</span><span class="wb"></span>`; wk.appendChild(c);
+  });
+  const n = streakCount(), t = log[dateKey] && log[dateKey].done;
+  $("#streak").textContent = t ? (n > 1 ? `prayed today · ${n} day streak` : "prayed today") : n > 0 ? `${n} day streak · pray today to keep it` : "begin your first day";
+}
+/* ambient hum */
+let amb = null;
+function ambient(on){
+  try{
+    if (on){
+      if (amb || !feel.ambient) return;
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === "suspended") ac.resume();
+      const g = ac.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(.05, ac.currentTime + 4);
+      const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 700;
+      const oscs = [110, 164.81, 220, 329.63].map((fr, i) => { const o = ac.createOscillator(); o.type = i % 2 ? "sine" : "triangle"; o.frequency.value = fr; o.detune.value = (i - 1.5) * 6; const og = ac.createGain(); og.gain.value = i < 2 ? .5 : .25; o.connect(og); og.connect(f); o.start(); return o; });
+      const lfo = ac.createOscillator(); lfo.frequency.value = .07; const lg = ac.createGain(); lg.gain.value = 250; lfo.connect(lg); lg.connect(f.frequency); lfo.start();
+      f.connect(g); g.connect(ac.destination); amb = { g, oscs, lfo };
+    } else if (amb){
+      const a = amb; amb = null; a.g.gain.cancelScheduledValues(ac.currentTime); a.g.gain.linearRampToValueAtTime(0, ac.currentTime + 1.5);
+      setTimeout(() => { try{ a.oscs.forEach(o => o.stop()); a.lfo.stop(); }catch(e){} }, 1700);
+    }
+  }catch(e){}
+}
 let fs = store.get("fs", 1);
 let override = null; { const ov = store.get("override", null); if (ov && ov.d === dateKey) override = ov.set; }
 let setKey = override || DAY_SET[today];
@@ -909,6 +953,8 @@ function show(first){
   if (first) renderPage(s);
   else { [...pageInner.children].forEach(c => { c.classList.remove("in"); c.classList.add("out"); }); clearTimeout(show._t); show._t = setTimeout(() => renderPage(steps[idx]), 260); }
   store.set("resume", { d: dateKey, set: setKey, id: s.id, done: false });
+  const le = log[dateKey] || (log[dateKey] = {}); const pr = idx / (steps.length - 1);
+  if (!le.done && pr > (le.p || 0)){ le.p = pr; le.set = setKey; store.set("log", log); }
 }
 function go(delta){
   if (delta > 0 && idx === steps.length - 1){ finish(); return; }
@@ -1025,7 +1071,7 @@ function to(name){
   scrs.threshold.classList.toggle("leaving", name !== "threshold");
   screen = name;
   Atmos.setIntensity(name === "threshold" ? .25 : 1);
-  wake(name === "nave");
+  wake(name === "nave"); ambient(name === "nave"); if (name === "threshold") paintWeek();
   if (name === "nave") setRail(steps[idx].bead, true);
 }
 let lock = null;
@@ -1035,11 +1081,12 @@ async function wake(on){
     if (!on && lock){ await lock.release(); lock = null; }
   }catch(e){ lock = null; }
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden && screen === "nave") wake(true); });
+document.addEventListener("visibilitychange", () => { if (document.hidden) ambient(false); else if (screen === "nave"){ wake(true); ambient(true); } });
 function finish(){
   store.set("resume", { d: dateKey, set: setKey, id: "end", done: true });
-  const t = (today + 1) % 7;
-  $("#amenNote").textContent = `Tomorrow is ${DAY_NAMES[t][1]}: the ${SETS[DAY_SET[t]].name} Mysteries.`;
+  log[dateKey] = { done:true, p:1, set:setKey }; store.set("log", log); paintWeek();
+  const t = (today + 1) % 7, sk = streakCount();
+  $("#amenNote").textContent = `${sk > 1 ? sk + " days in a row. " : ""}Tomorrow is ${DAY_NAMES[t][1]}: the ${SETS[DAY_SET[t]].name} Mysteries.`;
   tick(true); to("amen");
 }
 function applySet(keepId){
@@ -1091,6 +1138,7 @@ function buildOpts(){
   const box = $("#optList"); box.innerHTML = "";
   const h = document.createElement("p"); h.className = "sec"; h.textContent = "Feel"; box.appendChild(h);
   switchRow(box, "Haptics", "A small tap for each bead", "opt-haptic", feel.haptic, v => { feel.haptic = v; store.set("feel", feel); tick(true); });
+  switchRow(box, "Ambient hum", "A low, slow choir-like drone while you pray", "opt-ambient", feel.ambient, v => { feel.ambient = v; store.set("feel", feel); ambient(v && screen === "nave"); });
   switchRow(box, "Bead sound", "A soft click for each bead", "opt-sound", feel.sound, v => { feel.sound = v; store.set("feel", feel); tick(true); });
   let sec = "";
   OPTIONS.forEach(o => {
@@ -1158,7 +1206,7 @@ document.addEventListener("keydown", e => {
 document.documentElement.style.setProperty("--fs", fs);
 buildCross($("#bigCross")); buildCross($("#amenCross"));
 Atmos.snapGlow("150 16 22");
-applySet(null); buildStories(); buildOpts(); buildSets();
+applySet(null); buildStories(); buildOpts(); buildSets(); paintWeek();
 setRail(steps[0].bead, true);
 Atmos.setIntensity(.25);
 })();
@@ -1171,6 +1219,7 @@ Atmos.setIntensity(.25);
   addEventListener("appinstalled", () => { btn.hidden = true; });
   if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 })();
+
 
 
 

@@ -1,4 +1,4 @@
-const CACHE = "rosarium-v3";
+const CACHE = "rosarium-v4";
 const ASSETS = ["./","index.html","manifest.webmanifest","fonts/fell.woff2","fonts/fell-italic.woff2","fonts/fell-sc.woff2","fonts/fraktur.woff2",
   "icons/icon-192.png","icons/icon-512.png","icons/apple-touch-icon.png","icons/favicon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
