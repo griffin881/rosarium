@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0708">
+<meta name="description" content="A gothic step-by-step Rosary: today's mysteries, every prayer, bead by bead.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Rosarium</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/fell.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/fraktur.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"IM Fell English";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/fell.woff2) format("woff2")}
+@font-face{font-family:"IM Fell English";font-style:italic;font-weight:400;font-display:swap;src:url(fonts/fell-italic.woff2) format("woff2")}
+@font-face{font-family:"IM Fell English SC";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/fell-sc.woff2) format("woff2")}
+@font-face{font-family:"UnifrakturMaguntia";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/fraktur.woff2) format("woff2")}
+html{box-sizing:border-box;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<style>
+/* Layout: one-screen app. Crimson felt threshold with the chained cross, then a dark nave lit by a lancet window.
+   Prayers sit in a bone filigree frame; rubrics are printed in red like an old missal, spoken words in bone; the bead chain runs beneath. */
+:root{
+  --void:#0b0708;
+  --crypt:#170c0d;
+  --blood:#6e0b10;
+  --crimson:#a8141a;
+  --ember:#e5432f;
+  --gold:#d6ae62;
+  --bone:#ede4d2;
+  --ash:#9a8d84;
+  --line:rgba(237,228,210,.26);
+  --line-strong:rgba(237,228,210,.5);
+  --glow:176 22 28;
+  --f-display:"UnifrakturMaguntia","Old English Text MT","Goudy Text",serif;
+  --f-body:"IM Fell English","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --f-sc:"IM Fell English SC","IM Fell English",Georgia,serif;
+  --fs:1;
+  --ease:cubic-bezier(.22,.7,.18,1);
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--void);color:var(--bone);font-family:var(--f-body);overflow:hidden;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;text-rendering:optimizeLegibility}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,[role="switch"]:focus-visible{outline:1px solid var(--gold);outline-offset:4px}
+
+#sanctum{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+.grain{position:fixed;inset:-60%;width:220%;height:220%;z-index:40;pointer-events:none;
+  background-image:var(--noise);background-size:256px 256px;opacity:.55;animation:grain .9s steps(6) infinite}
+@keyframes grain{
+  0%{transform:translate(0,0)}17%{transform:translate(-4%,3%)}33%{transform:translate(3%,-5%)}
+  50%{transform:translate(-6%,-2%)}67%{transform:translate(5%,4%)}83%{transform:translate(-2%,6%)}100%{transform:translate(0,0)}}
+
+#app{position:relative;z-index:1;height:100%;max-width:100vw}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  opacity:0;visibility:hidden;transition:opacity 1.1s var(--ease),visibility 0s linear 1.1s,transform 1.4s var(--ease)}
+.screen.is-active{opacity:1;visibility:visible;transition:opacity 1.1s var(--ease),visibility 0s,transform 1.4s var(--ease)}
+
+/* ── Threshold: the crimson felt ── */
+#threshold{background:
+  radial-gradient(120% 70% at 50% 38%, #b5181e 0%, #8f1015 48%, #520709 100%);
+  justify-content:center;align-items:center;transform:scale(1)}
+#threshold::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(140% 90% at 50% 45%,transparent 55%,rgba(10,2,3,.55) 100%)}
+#threshold.leaving{transform:scale(1.06)}
+.th-inner{position:relative;z-index:1;width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center;
+  text-align:center;gap:10px;padding-block:20px;max-height:100%;overflow:auto}
+.th-day{margin:0;font-family:var(--f-sc);letter-spacing:.32em;font-size:.78rem;color:rgba(255,232,220,.78);
+  text-transform:lowercase;opacity:0;animation:rise 1.4s var(--ease) .9s forwards}
+.big-cross{width:min(58vw,250px);height:auto;max-height:42vh;overflow:visible;margin-top:4px;
+  filter:drop-shadow(0 18px 24px rgba(30,0,2,.55))}
+.big-cross .cx-body{fill:#0a0506;stroke:#0a0506;stroke-width:1;stroke-dasharray:1400;stroke-dashoffset:1400;fill-opacity:0;
+  animation:draw 2.4s var(--ease) .1s forwards,fillin 1.2s ease 1.4s forwards}
+.big-cross .cx-inlay{fill:#7a0d12;opacity:0;animation:fade 1s ease 2.1s forwards}
+.big-cross .chain{fill:none;stroke:#0a0506;opacity:0;animation:fade 1.2s ease 1.8s forwards}
+.big-cross .chain-a{stroke-width:2.6;stroke-dasharray:5.5 3.5}
+.big-cross .chain-b{stroke-width:1.1;stroke-dasharray:3 6;stroke-dashoffset:4.5}
+.big-cross .swing,.amen-cross .swing{transform-box:fill-box;transform-origin:0 0;animation:swing 7s ease-in-out 2.6s infinite alternate}
+.big-cross .swing.late,.amen-cross .swing.late{animation-delay:3.3s}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fillin{to{fill-opacity:1}}
+@keyframes fade{to{opacity:1}}
+@keyframes swing{from{transform:rotate(-1.4deg)}to{transform:rotate(1.4deg)}}
+@keyframes rise{from{opacity:0;transform:translateY(10px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+.th-title{margin:2px 0 0;font-family:var(--f-display);font-weight:400;font-size:clamp(3rem,15vw,4.4rem);line-height:.9;
+  color:#0a0506;text-shadow:0 1px 0 rgba(255,120,110,.18),0 10px 30px rgba(20,0,2,.5);opacity:0;animation:rise 1.6s var(--ease) 1.2s forwards}
+.th-set{margin:4px 0 0;font-family:var(--f-body);font-style:italic;font-size:1.3rem;color:var(--bone);opacity:0;animation:rise 1.4s var(--ease) 1.5s forwards}
+.th-list{list-style:none;margin:2px 0 6px;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;max-width:340px;
+  font-family:var(--f-sc);font-size:.8rem;letter-spacing:.06em;color:rgba(255,226,214,.72);opacity:0;animation:rise 1.4s var(--ease) 1.7s forwards}
+.th-list li{display:flex;align-items:center;gap:10px}
+.th-list li+li::before{content:"";width:3px;height:3px;border-radius:50%;background:rgba(10,5,6,.7)}
+.th-actions{display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;margin-top:8px;opacity:0;animation:rise 1.4s var(--ease) 1.95s forwards}
+.btn-primary{position:relative;height:56px;border:1px solid rgba(10,5,6,.9);background:#0a0506;color:var(--bone);
+  font-family:var(--f-sc);letter-spacing:.3em;font-size:.95rem;display:flex;align-items:center;justify-content:center;gap:12px;
+  box-shadow:0 14px 30px rgba(30,0,3,.45),inset 0 0 0 4px #0a0506,inset 0 0 0 5px rgba(237,228,210,.22);
+  transition:transform .3s var(--ease),box-shadow .4s}
+.btn-primary:active{transform:scale(.975)}
+.btn-ghost{height:46px;border:1px solid rgba(10,5,6,.6);color:var(--bone);font-family:var(--f-sc);letter-spacing:.14em;font-size:.88rem;
+  background:rgba(10,5,6,.38)}
+.th-links{display:flex;gap:10px;align-items:center;margin-top:6px;font-family:var(--f-sc);font-size:.82rem;letter-spacing:.08em;
+  color:rgba(255,230,220,.8);opacity:0;animation:rise 1.4s var(--ease) 2.15s forwards}
+.th-links button{padding:8px 2px;border-bottom:1px solid rgba(255,230,220,.25)}
+.star{display:inline-block;width:12px;height:12px;flex:none;background:var(--ember);
+  clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)}
+.btn-primary .star{animation:twinkle 3.4s ease-in-out infinite}
+@keyframes twinkle{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.25) rotate(45deg)}}
+</style>
+
+</head>
+<body>
+<canvas id="sanctum" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+
+<div id="app">
+  <section id="threshold" class="screen is-active" aria-label="Begin the Rosary">
+    <div class="th-inner">
+      <p class="th-day" id="thDay">dominica · sunday</p>
+      <svg id="bigCross" class="big-cross" viewBox="-104 -138 208 316" aria-hidden="true"></svg>
+      <h1 class="th-title">Rosarium</h1>
+      <p class="th-set" id="thSet">The Glorious Mysteries</p>
+      <ul class="th-list" id="thList"></ul>
+      <div class="th-actions">
+        <button id="btnBegin" class="btn-primary" type="button"><span class="star"></span><span>Begin</span><span class="star"></span></button>
+        <button id="btnResume" class="btn-ghost" type="button" hidden>Continue</button>
+        <button id="btnInstall" class="btn-ghost" type="button" hidden>Install the app</button>
+      </div>
+      <div class="th-links">
+        <button id="btnSets" type="button">Change mysteries</button>
+        <span aria-hidden="true">·</span>
+        <button id="btnOpts1" type="button">Prayers &amp; text size</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="nave" class="screen" aria-label="Praying the Rosary">
+    <header class="top">
+      <button id="btnHome" class="icon-btn" type="button" aria-label="Return to the start">
+        <svg viewBox="0 0 24 24"><path d="M5 21V11Q12 1 19 11V21Z"/><path d="M12 21v-6"/></svg>
+      </button>
+      <div class="top-mid">
+        <p id="topLabel" class="top-label">the glorious mysteries</p>
+        <p id="topSub" class="top-sub">The Opening</p>
+      </div>
+      <button id="btnOpts2" class="icon-btn" type="button" aria-label="Prayers and text size">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" style="fill:var(--void)"/><circle cx="15" cy="12" r="2" style="fill:var(--void)"/><circle cx="8" cy="17" r="2" style="fill:var(--void)"/></svg>
+      </button>
+    </header>
+    <div class="progress" aria-hidden="true"><span id="progFill"></span></div>
+
+    <div class="frame" id="frame">
+      <span class="crest" aria-hidden="true"><svg viewBox="0 0 120 28">
+        <rect x="20" y="9" width="80" height="10" style="fill:var(--void)"/>
+        <path d="M0 14H26M94 14H120" stroke="currentColor" stroke-opacity=".5" fill="none"/>
+        <path d="M52 14C45 4 35 4 31 11C28 17 35 21 39 16M68 14C75 4 85 4 89 11C92 17 85 21 81 16" stroke="currentColor" stroke-width="1.1" fill="none" stroke-opacity=".85"/>
+        <path d="M60 1L69 14L60 27L51 14Z" style="fill:var(--void)" stroke="currentColor" stroke-width="1.1"/>
+        <path d="M60 7L61.6 12.4L67 14L61.6 15.6L60 21L58.4 15.6L53 14L58.4 12.4Z" style="fill:var(--ember)"/>
+      </svg></span>
+      <span class="corner tl" aria-hidden="true"><svg viewBox="0 0 26 26"><rect x=".5" y=".5" width="25" height="25" style="fill:var(--void)" stroke="currentColor" stroke-opacity=".6"/><rect x="4.5" y="4.5" width="17" height="17" fill="none" stroke="currentColor" stroke-opacity=".3"/><path d="M13 5.5L14.5 11.5L20.5 13L14.5 14.5L13 20.5L11.5 14.5L5.5 13L11.5 11.5Z" fill="currentColor" fill-opacity=".85"/></svg></span>
+      <span class="corner tr" aria-hidden="true"><svg viewBox="0 0 26 26"><rect x=".5" y=".5" width="25" height="25" style="fill:var(--void)" stroke="currentColor" stroke-opacity=".6"/><rect x="4.5" y="4.5" width="17" height="17" fill="none" stroke="currentColor" stroke-opacity=".3"/><path d="M13 5.5L14.5 11.5L20.5 13L14.5 14.5L13 20.5L11.5 14.5L5.5 13L11.5 11.5Z" fill="currentColor" fill-opacity=".85"/></svg></span>
+      <span class="corner bl" aria-hidden="true"><svg viewBox="0 0 26 26"><rect x=".5" y=".5" width="25" height="25" style="fill:var(--void)" stroke="currentColor" stroke-opacity=".6"/><rect x="4.5" y="4.5" width="17" height="17" fill="none" stroke="currentColor" stroke-opacity=".3"/><path d="M13 5.5L14.5 11.5L20.5 13L14.5 14.5L13 20.5L11.5 14.5L5.5 13L11.5 11.5Z" fill="currentColor" fill-opacity=".85"/></svg></span>
+      <span class="corner br" aria-hidden="true"><svg viewBox="0 0 26 26"><rect x=".5" y=".5" width="25" height="25" style="fill:var(--void)" stroke="currentColor" stroke-opacity=".6"/><rect x="4.5" y="4.5" width="17" height="17" fill="none" stroke="currentColor" stroke-opacity=".3"/><path d="M13 5.5L14.5 11.5L20.5 13L14.5 14.5L13 20.5L11.5 14.5L5.5 13L11.5 11.5Z" fill="currentColor" fill-opacity=".85"/></svg></span>
+      <div class="page" id="page" aria-live="polite"><div class="page-inner" id="pageInner"></div></div>
+    </div>
+
+    <svg id="strip" class="strip" viewBox="0 0 360 58" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+
+    <nav class="controls" aria-label="Rosary controls">
+      <button id="btnPrev" class="icon-btn round" type="button" aria-label="Previous prayer">
+        <svg viewBox="0 0 24 24"><path d="M14.5 5L8 12l6.5 7"/></svg>
+      </button>
+      <button id="btnNext" class="btn-next" type="button"><span class="star"></span><span id="nextLabel">Next</span></button>
+      <button id="btnMap" class="icon-btn round" type="button" aria-label="Show the whole rosary">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="9.5" r="6.5" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 3.3"/><circle cx="12" cy="18.6" r="1.1" style="fill:currentColor"/><circle cx="12" cy="21.8" r="1.1" style="fill:currentColor"/></svg>
+      </button>
+    </nav>
+  </section>
+
+  <section id="amen" class="screen" aria-label="Rosary complete">
+    <svg id="amenCross" class="amen-cross rise" style="--i:0" viewBox="-104 -138 208 316" aria-hidden="true"></svg>
+    <h2 class="amen-word rise" style="--i:1">Amen.</h2>
+    <p class="amen-note rise" style="--i:2" id="amenNote">Tomorrow is Monday: the Joyful Mysteries.</p>
+    <div class="amen-actions rise" style="--i:3">
+      <button id="btnAgain" class="btn-line" type="button"><span class="star"></span>Pray again</button>
+      <button id="btnReturn" class="btn-line" type="button">Return to the start</button>
+    </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<aside class="sheet" id="sheetOpts" aria-label="Prayers and text size" aria-hidden="true">
+  <div class="sheet-in">
+    <div class="grip"></div>
+    <h2>The Prayers</h2>
+    <p class="sub">Every optional part of the Rosary. Turn off what you want to skip.</p>
+    <p class="sec">Text size</p>
+    <div class="opt"><div><b>Reading size</b><span>For the prayers on screen</span></div>
+      <div class="sizes" id="sizes"><button type="button" data-s="0.9" aria-pressed="false">A</button><button type="button" data-s="1" aria-pressed="true" style="font-size:1.15rem">A</button><button type="button" data-s="1.14" aria-pressed="false" style="font-size:1.35rem">A</button></div>
+    </div>
+    <div id="optList"></div>
+    <button class="btn-close" type="button" data-close>Done</button>
+  </div>
+</aside>
+
+<aside class="sheet" id="sheetSets" aria-label="Choose the mysteries" aria-hidden="true">
+  <div class="sheet-in">
+    <div class="grip"></div>
+    <h2>The Mysteries</h2>
+    <p class="sub">Each day has its own. Today’s are chosen for you.</p>
+    <div class="sets" id="setList"></div>
+    <button class="btn-close" type="button" data-close>Done</button>
+  </div>
+</aside>
+
+<aside class="sheet sheet-map" id="sheetMap" aria-label="The whole rosary" aria-hidden="true">
+  <div class="sheet-in">
+    <div class="grip"></div>
+    <h2>The Rosary</h2>
+    <svg id="mapSvg" viewBox="0 0 300 420" aria-label="Rosary map. Tap a bead to go there."></svg>
+    <p class="map-legend" id="mapLegend">Tap any bead to go there.</p>
+    <button class="btn-close" type="button" data-close>Close</button>
+  </div>
+</aside>
+
+<script>
+/* ───────── Texts ───────── */
+const P = {
+  sign: "In the name of the Father, and of the Son, and of the Holy Spirit. Amen.",
+  creed: "I believe in God, the Father almighty, Creator of heaven and earth, and in Jesus Christ, his only Son, our Lord, who was conceived by the Holy Spirit, born of the Virgin Mary, suffered under Pontius Pilate, was crucified, died and was buried; he descended into hell; on the third day he rose again from the dead; he ascended into heaven, and is seated at the right hand of God the Father almighty; from there he will come to judge the living and the dead. I believe in the Holy Spirit, the holy catholic Church, the communion of saints, the forgiveness of sins, the resurrection of the body, and life everlasting. Amen.",
+  father: "Our Father, who art in heaven, hallowed be thy name; thy kingdom come, thy will be done on earth as it is in heaven. Give us this day our daily bread, and forgive us our trespasses, as we forgive those who trespass against us; and lead us not into temptation, but deliver us from evil. Amen.",
+  hailA: "Hail Mary, full of grace, the Lord is with thee. Blessed art thou among women, and blessed is the fruit of thy womb, Jesus",
+  hailB: "Holy Mary, Mother of God, pray for us sinners, now and at the hour of our death. Amen.",
+  glory: "Glory be to the Father, and to the Son, and to the Holy Spirit, as it was in the beginning, is now, and ever shall be, world without end. Amen.",
+  fatima: "O my Jesus, forgive us our sins, save us from the fires of hell; lead all souls to heaven, especially those in most need of thy mercy. Amen.",
+  conceived: "O Mary, conceived without sin, pray for us who have recourse to thee.",
+  queen: "Hail, holy Queen, Mother of mercy, our life, our sweetness and our hope. To thee do we cry, poor banished children of Eve; to thee do we send up our sighs, mourning and weeping in this valley of tears. Turn then, most gracious advocate, thine eyes of mercy toward us, and after this our exile, show unto us the blessed fruit of thy womb, Jesus. O clement, O loving, O sweet Virgin Mary.",
+  closing: "Let us pray. O God, whose only-begotten Son, by his life, death, and resurrection, has purchased for us the rewards of eternal life; grant, we beseech thee, that, meditating upon these mysteries of the most holy Rosary of the Blessed Virgin Mary, we may imitate what they contain and obtain what they promise, through the same Christ our Lord. Amen.",
+  memorare: "Remember, O most gracious Virgin Mary, that never was it known that anyone who fled to thy protection, implored thy help, or sought thine intercession was left unaided. Inspired by this confidence, I fly unto thee, O Virgin of virgins, my mother; to thee do I come, before thee I stand, sinful and sorrowful. O Mother of the Word Incarnate, despise not my petitions, but in thy mercy hear and answer me. Amen.",
+  michael: "Saint Michael the Archangel, defend us in battle. Be our protection against the wickedness and snares of the devil. May God rebuke him, we humbly pray; and do thou, O Prince of the heavenly host, by the power of God, cast into hell Satan and all the evil spirits who prowl about the world seeking the ruin of souls. Amen."
+};
+
+const LITANY_TITLES = [
+  "Holy Mary","Holy Mother of God","Holy Virgin of virgins",
+  "Mother of Christ","Mother of the Church","Mother of mercy","Mother of divine grace","Mother of hope","Mother most pure","Mother most chaste","Mother inviolate","Mother undefiled","Mother most amiable","Mother most admirable","Mother of good counsel","Mother of our Creator","Mother of our Savior",
+  "Virgin most prudent","Virgin most venerable","Virgin most renowned","Virgin most powerful","Virgin most merciful","Virgin most faithful",
+  "Mirror of justice","Seat of wisdom","Cause of our joy","Spiritual vessel","Vessel of honor","Singular vessel of devotion","Mystical rose","Tower of David","Tower of ivory","House of gold","Ark of the covenant","Gate of heaven","Morning star","Health of the sick","Refuge of sinners","Solace of migrants","Comfort of the afflicted","Help of Christians",
+  "Queen of Angels","Queen of Patriarchs","Queen of Prophets","Queen of Apostles","Queen of Martyrs","Queen of Confessors","Queen of Virgins","Queen of all Saints","Queen conceived without original sin","Queen assumed into heaven","Queen of the most holy Rosary","Queen of families","Queen of peace"
+];
+
+/* Mystery sets. glow = rgb used for the light of that day. */
+const SETS = {
+  joyful: { name: "Joyful", days: "Monday & Saturday", glow: "196 120 60", m: [
+    ["The Annunciation","humility","whom you, O Virgin, conceived by the Holy Spirit","And Mary said: Behold the handmaid of the Lord; be it done to me according to thy word.","Luke 1:38"],
+    ["The Visitation","love of neighbor","whom you, O Virgin, carried to Elizabeth","And Elizabeth was filled with the Holy Ghost: and she cried out with a loud voice, and said: Blessed art thou among women, and blessed is the fruit of thy womb.","Luke 1:41–42"],
+    ["The Nativity","poverty of spirit","whom you, O Virgin, brought forth in Bethlehem","And she brought forth her firstborn son, and wrapped him up in swaddling clothes, and laid him in a manger; because there was no room for them in the inn.","Luke 2:7"],
+    ["The Presentation in the Temple","obedience","whom you, O Virgin, presented in the Temple","And after the days of her purification, according to the law of Moses, were accomplished, they carried him to Jerusalem, to present him to the Lord.","Luke 2:22"],
+    ["The Finding of Jesus in the Temple","joy in finding Jesus","whom you, O Virgin, found in the Temple","And it came to pass, that, after three days, they found him in the temple, sitting in the midst of the doctors, hearing them, and asking them questions.","Luke 2:46"]
+  ]},
+  sorrowful: { name: "Sorrowful", days: "Tuesday & Friday", glow: "150 12 20", m: [
+    ["The Agony in the Garden","sorrow for sin","who sweat blood for us","Saying: Father, if thou wilt, remove this chalice from me: but yet not my will, but thine be done.","Luke 22:42"],
+    ["The Scourging at the Pillar","purity","who was scourged for us","Then therefore, Pilate took Jesus, and scourged him.","John 19:1"],
+    ["The Crowning with Thorns","courage","who was crowned with thorns for us","And the soldiers platting a crown of thorns, put it upon his head; and they put on him a purple garment.","John 19:2"],
+    ["The Carrying of the Cross","patience","who carried the heavy cross for us","And bearing his own cross, he went forth to that place which is called Calvary, but in Hebrew Golgotha.","John 19:17"],
+    ["The Crucifixion","perseverance","who was crucified for us","And Jesus crying with a loud voice, said: Father, into thy hands I commend my spirit. And saying this, he gave up the ghost.","Luke 23:46"]
+  ]},
+  luminous: { name: "Luminous", days: "Thursday", glow: "150 160 190", m: [
+    ["The Baptism of Jesus","openness to the Holy Spirit","who was baptized in the Jordan","And Jesus being baptized, forthwith came out of the water: and lo, the heavens were opened to him: and he saw the Spirit of God descending as a dove, and coming upon him.","Matthew 3:16"],
+    ["The Wedding at Cana","fidelity","who revealed himself at Cana","His mother saith to the waiters: Whatsoever he shall say to you, do ye.","John 2:5"],
+    ["The Proclamation of the Kingdom","repentance","who proclaimed the Kingdom of God","The time is accomplished, and the kingdom of God is at hand: repent, and believe the gospel.","Mark 1:15"],
+    ["The Transfiguration","desire for holiness","who was transfigured on the mountain","And he was transfigured before them. And his face did shine as the sun: and his garments became white as snow.","Matthew 17:2"],
+    ["The Institution of the Eucharist","adoration","who gave us the Eucharist","And whilst they were at supper, Jesus took bread, and blessed, and broke: and gave to his disciples, and said: Take ye, and eat. This is my body.","Matthew 26:26"]
+  ]},
+  glorious: { name: "Glorious", days: "Wednesday & Sunday", glow: "200 150 70", m: [
+    ["The Resurrection","faith","who rose from the dead","He is not here, for he is risen, as he said. Come, and see the place where the Lord was laid.","Matthew 28:6"],
+    ["The Ascension","hope","who ascended into heaven","And when he had said these things, while they looked on, he was raised up: and a cloud received him out of their sight.","Acts 1:9"],
+    ["The Descent of the Holy Spirit","love of God","who sent us the Holy Spirit","And they were all filled with the Holy Ghost, and they began to speak with divers tongues, according as the Holy Ghost gave them to speak.","Acts 2:4"],
+    ["The Assumption of Mary","the grace of a happy death","who took you up, O Virgin, into heaven","And as in Adam all die, so also in Christ all shall be made alive. But every one in his own order: the firstfruits Christ, then they that are of Christ.","1 Corinthians 15:22–23"],
+    ["The Coronation of Mary","trust in Mary’s intercession","who crowned you, O Virgin, in heaven","And a great sign appeared in heaven: A woman clothed with the sun, and the moon under her feet, and on her head a crown of twelve stars.","Apocalypse 12:1"]
+  ]}
+};
+const DAY_SET = ["glorious","joyful","sorrowful","glorious","luminous","sorrowful","joyful"];
+const DAY_NAMES = [["dominica","Sunday"],["feria secunda","Monday"],["feria tertia","Tuesday"],["feria quarta","Wednesday"],["feria quinta","Thursday"],["feria sexta","Friday"],["sabbatum","Saturday"]];
+const ORD = ["First","Second","Third","Fourth","Fifth"];
+const ROMAN = ["I","II","III","IV","V"];
+const FHC = ["For an increase of faith.","For an increase of hope.","For an increase of charity."];
+
+/* Optional parts. on = default. */
+const OPTIONS = [
+  { k:"intention", sec:"Opening", t:"Your intention", d:"Offer the Rosary for someone or something", on:true },
+  { k:"fhc", sec:"Opening", t:"Faith, hope & charity", d:"Name the intention before each of the first three Hail Marys", on:true },
+  { k:"scripture", sec:"Each decade", t:"Scripture for meditation", d:"A verse for each mystery, Douay-Rheims", on:true },
+  { k:"clause", sec:"Each decade", t:"Mystery clause in the Hail Mary", d:"Adds a phrase about the mystery after “Jesus”", on:false },
+  { k:"conceived", sec:"Each decade", t:"O Mary, conceived without sin", d:"Said after the Fatima Prayer", on:true },
+  { k:"litany", sec:"Closing", t:"Litany of Loreto", d:"The titles of Mary, after the Hail Holy Queen", on:true },
+  { k:"memorare", sec:"Closing", t:"The Memorare", d:"", on:true },
+  { k:"michael", sec:"Closing", t:"Prayer to St. Michael", d:"", on:true },
+  { k:"pope", sec:"Closing", t:"For the Pope’s intentions", d:"One Our Father, Hail Mary and Glory Be", on:true }
+];
+/* ───────── The chained cross ───────── */
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent){
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function rot(pts, deg){
+  const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return pts.map(([x,y]) => [x*c - y*s, x*s + y*c]);
+}
+const ptsStr = p => p.map(([x,y]) => x.toFixed(2)+","+y.toFixed(2)).join(" ");
+function starPath(cx, cy, R, r, n){
+  let d = "";
+  for (let i = 0; i < n*2; i++){
+    const rad = i % 2 ? r : R, a = -Math.PI/2 + i * Math.PI / n;
+    d += (i ? "L" : "M") + (cx + rad*Math.cos(a)).toFixed(2) + " " + (cy + rad*Math.sin(a)).toFixed(2);
+  }
+  return d + "Z";
+}
+function buildCross(svg){
+  svg.innerHTML = "";
+  const arm = L => [[-9,-12],[-9,-L+6],[-15,-L+2],[-20,-L-4],[-10,-L-7],[-6,-L-15],[0,-L-34],[6,-L-15],[10,-L-7],[20,-L-4],[15,-L+2],[9,-L+6],[9,-12]];
+  const barb = a => [[-9,-a-5],[-15,-a],[-9,-a+5]];
+  const arms = [[88,0],[64,90],[140,180],[64,270]];
+  const body = el("g", {}, svg);
+  const inl = el("g", {}, svg);
+  arms.forEach(([L,deg]) => {
+    el("polygon", { class:"cx-body", points: ptsStr(rot(arm(L), deg)) }, body);
+    const a = L * 0.5;
+    el("polygon", { class:"cx-body", points: ptsStr(rot(barb(a), deg)) }, body);
+    el("polygon", { class:"cx-body", points: ptsStr(rot(barb(a).map(([x,y]) => [-x,y]), deg)) }, body);
+    const m = L * 0.7;
+    el("polygon", { class:"cx-inlay", points: ptsStr(rot([[0,-m-9],[3.2,-m],[0,-m+9],[-3.2,-m]], deg)) }, inl);
+    el("circle", { class:"cx-inlay", cx: rot([[0,-L+1]],deg)[0][0].toFixed(2), cy: rot([[0,-L+1]],deg)[0][1].toFixed(2), r: 2.4 }, inl);
+  });
+  el("polygon", { class:"cx-body", points:"0,-29 29,0 0,29 -29,0" }, body);
+  el("rect", { class:"cx-body", x:-20, y:-20, width:40, height:40 }, body);
+  el("path", { class:"cx-inlay", d: starPath(0,0,17,5.2,8) }, inl);
+  el("circle", { class:"cx-body", cx:0, cy:0, r:3.4 }, inl);
+
+  const chainsL = ["M-71 8Q-46 60-11 36","M-84 7Q-60 122-11 96","M-93 6L-93 132"];
+  ["l","r"].forEach(side => {
+    const outer = el("g", side === "r" ? { transform: "scale(-1 1)" } : {}, svg);
+    const g = el("g", { class: "swing l" + (side === "r" ? " late" : "") }, outer);
+    chainsL.forEach(d => {
+      el("path", { class:"chain chain-a", d }, g);
+      el("path", { class:"chain chain-b", d }, g);
+    });
+    el("polygon", { class:"cx-body spike", points: "-96.5,131 -93,143 -89.5,131" }, g);
+  });
+}
+
+/* ───────── Film grain ───────── */
+(function makeGrain(){
+  try{
+    const c = document.createElement("canvas"); c.width = c.height = 256;
+    const x = c.getContext("2d"), img = x.createImageData(256,256), d = img.data;
+    for (let i = 0; i < d.length; i += 4){
+      const r = Math.random();
+      if (r > 0.62){ d[i]=d[i+1]=d[i+2]=255; d[i+3]=Math.random()*30; }
+      else if (r < 0.3){ d[i]=d[i+1]=d[i+2]=0; d[i+3]=Math.random()*46; }
+    }
+    x.putImageData(img,0,0);
+    document.documentElement.style.setProperty("--noise", `url(${c.toDataURL()})`);
+  }catch(e){}
+})();
+
+/* ───────── The nave: lancet window, light, pillars, candles, dust ───────── */
+const Atmos = (function(){
+  const cv = document.getElementById("sanctum"), ctx = cv.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W = 0, H = 0, dpr = 1, win = null, pillars = null, vignette = null;
+  let glow = [200,150,70], target = [200,150,70];
+  let intensity = 0, intensityTarget = 0, running = true, last = 0, t0 = performance.now();
+  let motes = [], candles = [];
+
+  function off(w,h){ const c = document.createElement("canvas"); c.width = Math.max(1,w*dpr|0); c.height = Math.max(1,h*dpr|0); const x = c.getContext("2d"); x.scale(dpr,dpr); return [c,x]; }
+
+  function geom(){
+    const ww = Math.min(W * 0.3, 150), r = ww;
+    const cx = W/2, top = Math.max(18, H * 0.035);
+    const springY = top + r * 0.866, bottom = springY + ww * 0.95;
+    return { ww, r, cx, top, springY, bottom };
+  }
+  function lancet(x, g, inset){
+    const hw = g.ww/2 - inset, r = g.r - inset*1.2, sy = g.springY + inset*0.3;
+    x.beginPath();
+    x.moveTo(g.cx - hw, g.bottom - inset);
+    x.lineTo(g.cx - hw, sy);
+    x.arc(g.cx - hw + r, sy, r, Math.PI, Math.PI*4/3);
+    x.arc(g.cx + hw - r, sy, r, Math.PI*5/3, Math.PI*2);
+    x.lineTo(g.cx + hw, g.bottom - inset);
+    x.closePath();
+  }
+  function renderStatic(){
+    const g = geom();
+    // window
+    let x; [win, x] = off(W, g.bottom + 40);
+    x.save(); x.shadowColor = "rgba(240,232,218,.75)"; x.shadowBlur = 40;
+    lancet(x, g, 0);
+    const wg = x.createRadialGradient(g.cx, g.springY, 4, g.cx, g.springY, g.ww);
+    wg.addColorStop(0, "rgba(250,246,238,.98)"); wg.addColorStop(1, "rgba(214,206,194,.72)");
+    x.fillStyle = wg; x.fill(); x.restore();
+    // tracery
+    x.strokeStyle = "rgba(10,6,7,.92)"; x.lineWidth = Math.max(2, g.ww*0.035);
+    lancet(x, g, 0); x.stroke();
+    x.beginPath(); x.moveTo(g.cx, g.springY + g.ww*0.08); x.lineTo(g.cx, g.bottom); x.stroke();
+    const sub = { ...g, ww: g.ww*0.46, r: g.ww*0.46 };
+    [-1,1].forEach(s => { const gg = { ...sub, cx: g.cx + s*g.ww*0.25, springY: g.springY + g.ww*0.42, bottom: g.bottom }; x.lineWidth = Math.max(1.4, g.ww*0.022); lancet(x, gg, 0); x.stroke(); });
+    const rr = g.ww*0.15, ry = g.springY - g.ww*0.12;
+    x.beginPath(); x.arc(g.cx, ry, rr, 0, Math.PI*2); x.stroke();
+    for (let i = 0; i < 4; i++){ const a = i*Math.PI/2 + Math.PI/4; x.beginPath(); x.arc(g.cx + Math.cos(a)*rr*0.5, ry + Math.sin(a)*rr*0.5, rr*0.42, 0, Math.PI*2); x.stroke(); }
+    x.lineWidth = 1; for (let yy = g.springY + g.ww*0.5; yy < g.bottom; yy += g.ww*0.16){ x.beginPath(); x.moveTo(g.cx - g.ww/2, yy); x.lineTo(g.cx + g.ww/2, yy); x.globalAlpha = .35; x.stroke(); x.globalAlpha = 1; }
+
+    // pillars
+    [pillars, x] = off(W, H);
+    const pw = Math.max(34, W*0.11);
+    [[-pw*0.25, 1], [W - pw*0.75, -1]].forEach(([px, dir]) => {
+      const pg = x.createLinearGradient(px, 0, px + pw, 0);
+      const rim = "rgba(150,20,26,.32)", dark = "rgba(8,4,5,.96)";
+      if (dir > 0){ pg.addColorStop(0, dark); pg.addColorStop(.82, "rgba(16,8,9,.95)"); pg.addColorStop(1, rim); }
+      else { pg.addColorStop(0, rim); pg.addColorStop(.18, "rgba(16,8,9,.95)"); pg.addColorStop(1, dark); }
+      x.fillStyle = pg; x.fillRect(px, 0, pw, H);
+      x.strokeStyle = "rgba(0,0,0,.5)"; x.lineWidth = 1;
+      for (let i = 1; i < 4; i++){ x.beginPath(); x.moveTo(px + pw*i/4, 0); x.lineTo(px + pw*i/4, H); x.stroke(); }
+    });
+    // vignette
+    [vignette, x] = off(W, H);
+    const vg = x.createRadialGradient(W/2, H*0.45, Math.min(W,H)*0.25, W/2, H*0.5, Math.max(W,H)*0.78);
+    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(3,1,2,.82)");
+    x.fillStyle = vg; x.fillRect(0,0,W,H);
+
+    // motes and candles
+    motes = Array.from({ length: Math.round(Math.min(70, W*0.09)) }, () => ({ u: Math.random(), v: Math.random(), s: .4 + Math.random()*1.3, sp: .004 + Math.random()*.012, ph: Math.random()*6.28 }));
+    const cy = H * 0.94, n = W < 500 ? 3 : 5;
+    candles = [];
+    for (let i = 0; i < n; i++){ candles.push({ x: W*0.05 + i*Math.min(22, W*0.045), y: cy - (i%2)*10, h: 26 + (i*7)%18, ph: Math.random()*6 }); candles.push({ x: W*0.95 - i*Math.min(22, W*0.045), y: cy - ((i+1)%2)*10, h: 22 + (i*11)%20, ph: Math.random()*6 }); }
+  }
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    W = innerWidth; H = innerHeight;
+    cv.width = W*dpr|0; cv.height = H*dpr|0;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    renderStatic(); draw(performance.now(), true);
+  }
+  function draw(now){
+    const t = (now - t0) / 1000;
+    for (let i = 0; i < 3; i++) glow[i] += (target[i] - glow[i]) * 0.03;
+    intensity += (intensityTarget - intensity) * 0.025;
+    const [gr, gg, gb] = glow.map(v => v|0), I = intensity, g = geom();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#0b0708"; ctx.fillRect(0,0,W,H);
+    // floor glow
+    let rg = ctx.createRadialGradient(W/2, H*1.08, 10, W/2, H*1.0, H*0.85);
+    rg.addColorStop(0, `rgba(${gr},${gg},${gb},${.55*I+.12})`); rg.addColorStop(.5, `rgba(${gr},${gg},${gb},${.12*I+.03})`); rg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = rg; ctx.fillRect(0,0,W,H);
+    // altar glow behind
+    rg = ctx.createRadialGradient(W/2, H*0.55, 10, W/2, H*0.55, W*0.7);
+    rg.addColorStop(0, `rgba(${gr},${gg*0.4|0},${gb*0.4|0},${.16*I})`); rg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = rg; ctx.fillRect(0,0,W,H);
+    // light shaft
+    const sway = reduce ? 0 : Math.sin(t*0.13)*W*0.03;
+    ctx.globalCompositeOperation = "screen";
+    [[1, .2, .5, 1.0], [.6, .1, .2, .55], [.5, .32, .08, .3]].forEach(([a, l, rr2, spread], k) => {
+      const lx = g.cx - g.ww*(0.42 - l*0.4), rx = g.cx + g.ww*(0.42 - rr2*0.4);
+      const bl = g.cx - g.ww*(0.6 + spread*1.3) + sway*(1+k*.3), br = g.cx + g.ww*(0.35 + spread*0.9) + sway*(1+k*.3);
+      const sg = ctx.createLinearGradient(0, g.bottom, 0, H*0.95);
+      sg.addColorStop(0, `rgba(235,226,212,${.15*a*I})`); sg.addColorStop(.55, `rgba(225,214,200,${.06*a*I})`); sg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = sg; ctx.beginPath(); ctx.moveTo(lx, g.bottom - 6); ctx.lineTo(rx, g.bottom - 6); ctx.lineTo(br, H); ctx.lineTo(bl, H); ctx.closePath(); ctx.fill();
+    });
+    // dust in the shaft
+    motes.forEach(m => {
+      if (!reduce){ m.v -= m.sp * 0.016; if (m.v < 0) m.v = 1; }
+      const y = g.bottom + m.v * (H - g.bottom);
+      const half = g.ww*0.42 + (g.ww*1.1) * m.v;
+      const x = g.cx - g.ww*0.15 + sway*m.v + (m.u - .5) * 2 * half + Math.sin(t*0.6 + m.ph)*6;
+      ctx.fillStyle = `rgba(245,236,220,${(.55 - m.v*.4) * I * (.5+.5*Math.sin(t*1.3+m.ph))})`;
+      ctx.beginPath(); ctx.arc(x, y, m.s, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.globalCompositeOperation = "source-over";
+    // window
+    if (win){ ctx.globalAlpha = (.25 + .75*I) * (reduce ? 1 : (.96 + .04*Math.sin(t*2.1))); ctx.drawImage(win, 0, 0, W, win.height/dpr); ctx.globalAlpha = 1; }
+    if (pillars) ctx.drawImage(pillars, 0, 0, W, H);
+    // candles
+    candles.forEach(c => {
+      const f = reduce ? 1 : (.82 + .18*Math.sin(t*9 + c.ph) * Math.sin(t*3.7 + c.ph*2));
+      const fy = c.y - c.h;
+      const cg = ctx.createRadialGradient(c.x, fy - 4, 0, c.x, fy - 4, 46*f);
+      cg.addColorStop(0, `rgba(255,190,110,${.42*f*(.35+.65*I)})`); cg.addColorStop(1, "rgba(255,120,40,0)");
+      ctx.fillStyle = cg; ctx.fillRect(c.x - 50, fy - 54, 100, 100);
+      ctx.fillStyle = "rgba(225,214,196,.55)"; ctx.fillRect(c.x - 2.5, fy, 5, c.h);
+      ctx.fillStyle = `rgba(255,224,160,${.95*f})`;
+      ctx.beginPath(); ctx.ellipse(c.x + (reduce?0:Math.sin(t*6+c.ph)*.8), fy - 5, 2.2, 5.5*f, 0, 0, Math.PI*2); ctx.fill();
+    });
+    if (vignette) ctx.drawImage(vignette, 0, 0, W, H);
+  }
+  function loop(now){
+    if (running && now - last > 33){ last = now; draw(now); }
+    requestAnimationFrame(loop);
+  }
+  addEventListener("resize", () => { clearTimeout(resize._t); resize._t = setTimeout(resize, 120); });
+  document.addEventListener("visibilitychange", () => { running = !document.hidden; });
+  resize(); requestAnimationFrame(loop);
+  return {
+    setGlow(rgb){ target = rgb.split(" ").map(Number); },
+    setIntensity(v){ intensityTarget = v; },
+    snapGlow(rgb){ glow = rgb.split(" ").map(Number); target = glow.slice(); }
+  };
+})();
+/* ───────── The Rosary, step by step ───────── */
+(function(){
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("rosarium:" + k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("rosarium:" + k, JSON.stringify(v)); }catch(e){} }
+};
+const now = new Date(), today = now.getDay();
+const dateKey = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+const opts = {}; OPTIONS.forEach(o => opts[o.k] = o.on);
+Object.assign(opts, store.get("opts", {}));
+let fs = store.get("fs", 1);
+let override = null; { const ov = store.get("override", null); if (ov && ov.d === dateKey) override = ov.set; }
+let setKey = override || DAY_SET[today];
+let steps = [], ORDER = {}, idx = 0, screen = "threshold", busy = false;
+
+/* part helpers */
+const R = t => ({ tag:"p", cls:"rubric", inner:`<span class="star"></span><span>${t}</span>` });
+const T = (t, it) => ({ tag:"h2", cls:"title" + (it ? " it" : ""), inner:t });
+const E = t => ({ tag:"p", cls:"eyebrow", inner:t });
+const cap = t => t[0] === "<" ? t : `<span class="dropcap">${t[0]}</span>${t.slice(1)}`;
+const PR = (t, sm) => ({ tag:"p", cls:"prayer" + (sm ? " sm" : ""), inner:cap(t) });
+const SAY = t => ({ tag:"p", cls:"say", inner:t });
+const FR = t => ({ tag:"p", cls:"fruit", inner:`<span class="star"></span>the fruit · ${t}` });
+const SC = (v, ref) => ({ tag:"blockquote", cls:"scripture", inner:`${v}<cite>${ref} · Douay-Rheims</cite>` });
+const CT = (k, n) => ({ tag:"div", cls:"counter", inner:`${k}<small>of ${n}</small>` });
+const MED = t => ({ tag:"p", cls:"meditate", inner:t });
+const LIT = rows => ({ tag:"ul", cls:"litany", inner: rows.map(([a,b,full]) => `<li${full ? ' class="full"' : ""}><span>${a}</span>${b ? ` <span class="resp">${b}</span>` : ""}</li>`).join("") });
+const MULTI = blocks => ({ tag:"div", cls:"multi", inner: blocks.map(([h,t]) => `<section><h3>${h}</h3><p class="prayer sm">${t}</p></section>`).join("") });
+const hail = clause => `${P.hailA}${clause ? `, <span class="clause">${clause}</span>` : ""}. ${P.hailB}`;
+
+function buildSteps(){
+  const S = SETS[setKey], out = [];
+  const add = (id, bead, sub, parts, extra) => out.push(Object.assign({ id, bead, sub, parts, align:"center" }, extra || {}));
+  // Opening
+  add("sign", "cross", "The Opening", [R("Hold the crucifix · touch forehead, chest, left shoulder, right shoulder"), T("The Sign of the Cross"), PR(P.sign)]);
+  if (opts.intention) add("intention", "cross", "Your Intention", [R("Still on the crucifix · aloud or in your heart"), T("The Intention"), SAY("I offer this Rosary for ___."), { tag:"p", cls:"prayer sm", inner:'<span style="color:var(--ash)">Name a person, a need, or something you are thankful for.</span>' }]);
+  add("creed", "cross", "The Opening", [R("On the crucifix"), T("The Apostles’ Creed"), PR(P.creed, true)], { align:"left" });
+  add("p-of", "p-of", "The Opening", [R("On the first large bead"), T("Our Father"), PR(P.father)]);
+  for (let n = 1; n <= 3; n++){
+    const parts = [R(`On small bead ${n} of 3`)];
+    if (opts.fhc) parts.push(SAY(FHC[n-1]));
+    parts.push(CT(n, 3), PR(hail()));
+    add("p-hm" + n, "p-hm" + n, "The Opening", parts);
+  }
+  add("p-glory", "p-link", "The Opening", [R("On the chain"), T("Glory Be"), PR(P.glory)]);
+  // Decades
+  S.m.forEach(([name, fruit, clause, verse, ref], i) => {
+    const d = i + 1, sub = `${ROMAN[i]} · ${name}`;
+    const ann = [E(`decade ${ROMAN[i]} · the ${ORD[i].toLowerCase()} ${S.name.toLowerCase()} mystery`), T(name), FR(fruit), R("On the large bead · announce it aloud"), SAY(`The ${ORD[i]} ${S.name} Mystery: ${name}. The fruit of this mystery is ${fruit}.`)];
+    if (opts.scripture) ann.push(SC(verse, ref));
+    add(`d${d}-ann`, `d${d}-of`, sub, ann);
+    add(`d${d}-of`, `d${d}-of`, sub, [E(name.toLowerCase()), R("On the large bead"), T("Our Father"), PR(P.father)]);
+    for (let k = 1; k <= 10; k++){
+      const parts = [MED(`meditate · ${name.toLowerCase()}`), CT(k, 10), PR(hail(opts.clause ? clause : null))];
+      if (k === 1) parts.unshift(R("On each small bead · keep your mind on the mystery"));
+      add(`d${d}-hm${k}`, `d${d}-hm${k}`, sub, parts);
+    }
+    add(`d${d}-glory`, `d${d}-link`, sub, [E(`end of decade ${ROMAN[i]}`), R("On the chain"), T("Glory Be"), PR(P.glory)]);
+    add(`d${d}-fatima`, `d${d}-link`, sub, [R("Still on the chain"), T("The Fatima Prayer"), PR(P.fatima)]);
+    if (opts.conceived) add(`d${d}-conc`, `d${d}-link`, sub, [R("Still on the chain"), T("O Mary, Conceived without Sin", true), PR(P.conceived)]);
+  });
+  // Closing
+  add("queen", "medal", "The Closing", [R("On the centerpiece medal"), T("Hail, Holy Queen"), PR(P.queen, true)], { align:"left" });
+  if (opts.litany){
+    add("lit1", "medal", "Litany of Loreto", [R("Say every line, then its response in red"), T("The Litany of Loreto"), LIT([
+      ["Lord, have mercy.",0,1],["Christ, have mercy.",0,1],["Lord, have mercy.",0,1],["Christ, hear us.",0,1],["Christ, graciously hear us.",0,1],
+      ["God the Father of heaven,","have mercy on us."],["God the Son, Redeemer of the world,","have mercy on us."],["God the Holy Spirit,","have mercy on us."],["Holy Trinity, one God,","have mercy on us."]])], { align:"left" });
+    add("lit2", "medal", "Litany of Loreto", [R("After each title · pray for us"), T("The Titles of Mary", true), LIT(LITANY_TITLES.map(t => [t + ",", "pray for us."]))], { align:"left" });
+    add("lit3", "medal", "Litany of Loreto", [R("To close the litany"), T("Lamb of God"), LIT([
+      ["Lamb of God, who takest away the sins of the world,","spare us, O Lord.",1],
+      ["Lamb of God, who takest away the sins of the world,","graciously hear us, O Lord.",1],
+      ["Lamb of God, who takest away the sins of the world,","have mercy on us.",1]])], { align:"left" });
+  }
+  add("vr", "medal", "The Closing", [R("Versicle and response"), T("Pray for Us"), { tag:"p", cls:"prayer", inner:`<span class="vr">℣.</span>Pray for us, O holy Mother of God.<br><span class="vr">℟.</span>That we may be made worthy of the promises of Christ.` }]);
+  add("closing", "medal", "The Closing", [R("The concluding prayer"), T("The Concluding Prayer", true), PR(P.closing, true)], { align:"left" });
+  if (opts.memorare) add("memorare", "medal", "The Closing", [R("Optional prayer"), T("The Memorare"), PR(P.memorare, true)], { align:"left" });
+  if (opts.michael) add("michael", "medal", "The Closing", [R("Optional prayer"), T("Saint Michael the Archangel", true), PR(P.michael, true)], { align:"left" });
+  if (opts.pope) add("pope", "medal", "For the Holy Father", [R("For the Pope’s intentions · one of each"), T("The Pope’s Intentions", true), MULTI([["Our Father", P.father], ["Hail Mary", hail()], ["Glory Be", P.glory]])], { align:"left" });
+  add("end", "cross-end", "The End", [R("Make the Sign of the Cross"), T("The Sign of the Cross"), PR(P.sign)], { next:"Amen" });
+  return out;
+}
+function rebuild(keepId){
+  steps = buildSteps(); ORDER = {};
+  steps.forEach((s, i) => { if (!(s.bead in ORDER)) ORDER[s.bead] = i; });
+  if (keepId){ const j = steps.findIndex(s => s.id === keepId); idx = j >= 0 ? j : Math.min(idx, steps.length - 1); }
+  else idx = Math.min(idx, steps.length - 1);
+}
+
+/* ───── render a step ───── */
+const pageInner = $("#pageInner"), page = $("#page");
+function partsHTML(parts){ return parts.map((p, i) => `<${p.tag} class="${p.cls} in" style="--i:${i}">${p.inner}</${p.tag}>`).join(""); }
+function show(first){
+  const s = steps[idx], S = SETS[setKey];
+  $("#topLabel").textContent = `the ${S.name.toLowerCase()} mysteries`;
+  $("#topSub").textContent = s.sub;
+  $("#progFill").style.width = (idx / (steps.length - 1) * 100) + "%";
+  $("#nextLabel").textContent = s.next || "Next";
+  $("#btnPrev").disabled = idx === 0; $("#btnPrev").style.opacity = idx === 0 ? .3 : "";
+  const swap = () => {
+    pageInner.className = "page-inner " + s.align;
+    pageInner.innerHTML = partsHTML(s.parts);
+    page.scrollTop = 0;
+  };
+  if (first) swap();
+  else { [...pageInner.children].forEach(c => { c.classList.remove("in"); c.classList.add("out"); }); clearTimeout(show._t); show._t = setTimeout(swap, 300); }
+  updateStrip(s.bead);
+  store.set("resume", { d: dateKey, set: setKey, id: s.id, done: false });
+}
+function go(delta){
+  if (busy) return;
+  if (delta > 0 && idx === steps.length - 1){ finish(); return; }
+  const n = Math.max(0, Math.min(steps.length - 1, idx + delta));
+  if (n === idx) return;
+  idx = n; show();
+  try{ navigator.vibrate && navigator.vibrate(delta > 0 ? 7 : 4); }catch(e){}
+}
+function jump(i){ idx = i; show(); }
+
+/* ───── bead chain under the frame ───── */
+const strip = $("#strip");
+let stripSec = null, stripNodes = {}, marker = null, halo = null;
+function secOf(bead){
+  if (bead === "cross" || bead.startsWith("p-")) return "intro";
+  if (bead === "medal" || bead === "cross-end") return "close";
+  return bead.slice(0, 2);
+}
+function miniCross(g, x, y, s){
+  el("rect", { x: x - 2*s, y: y - 12*s, width: 4*s, height: 26*s, rx: .6 }, g);
+  el("rect", { x: x - 8*s, y: y - 6*s, width: 16*s, height: 4*s, rx: .6 }, g);
+}
+function drawStrip(sec){
+  strip.innerHTML = ""; stripNodes = {};
+  const defs = el("defs", {}, strip);
+  const f = el("filter", { id:"sblur", x:"-100%", y:"-100%", width:"300%", height:"300%" }, defs);
+  el("feGaussianBlur", { stdDeviation:"5" }, f);
+  let items;
+  if (sec === "intro") items = [["cross","cross"],["p-of","L"],["p-hm1","s"],["p-hm2","s"],["p-hm3","s"],["p-link","link"]];
+  else if (sec === "close") items = [["medal","medal"],["close-link","link"],["cross-end","cross"]];
+  else { items = [[`${sec}-of`,"L"]]; for (let k = 1; k <= 10; k++) items.push([`${sec}-hm${k}`,"s"]); items.push([`${sec}-link`,"link"]); }
+  const W = { cross:22, L:20, s:17, medal:22, link:36 }, GAP = 9;
+  const total = items.reduce((a,[,t]) => a + W[t], 0) + GAP * (items.length - 1);
+  let x = (360 - total) / 2;
+  const y = 34;
+  halo = el("circle", { cx:0, cy:y, r:13, fill:"var(--ember)", opacity:".5", filter:"url(#sblur)", style:"transition:transform .7s cubic-bezier(.22,.7,.18,1)" }, strip);
+  const pos = [];
+  items.forEach(([id,t], i) => { pos.push([id, t, x, x + W[t]]); x += W[t] + GAP; });
+  pos.forEach(([id,t,a,b], i) => {
+    if (i < pos.length - 1 && t !== "link" && pos[i+1][1] !== "link") el("path", { class:"chainlink", d:`M${b+1} ${y}H${pos[i+1][2]-1}` }, strip);
+  });
+  pos.forEach(([id,t,a,b]) => {
+    const cx = (a + b) / 2; let node;
+    if (t === "link"){ node = el("path", { class:"chainlink", d:`M${a - GAP + 1} ${y}C${a+6} ${y+10},${b-6} ${y+10},${b} ${y}` }, strip); }
+    else if (t === "cross"){ node = el("g", { class:"bead" }, strip); miniCross(node, cx, y + 1, .78); }
+    else if (t === "medal"){ node = el("path", { class:"bead", d:`M${cx} ${y-11}L${cx+9} ${y}L${cx} ${y+11}L${cx-9} ${y}Z` }, strip); }
+    else node = el("circle", { class:"bead", cx, cy:y, r: t === "L" ? 8.5 : 6 }, strip);
+    stripNodes[id] = { node, t, cx };
+  });
+  marker = el("path", { d: starPath(0, 0, 7, 1.8, 4), fill:"var(--ember)", style:"transition:transform .7s cubic-bezier(.22,.7,.18,1)" }, strip);
+  stripSec = sec;
+}
+function stateOf(id, cur){
+  if (id === "close-link") return ORDER[cur] > ORDER["medal"] ? "past" : "future";
+  const o = ORDER[id], c = ORDER[cur];
+  if (id === cur) return "now";
+  return o < c ? "past" : "future";
+}
+function paint(node, t, st){
+  if (t === "link"){ node.classList.toggle("lit", st === "past"); node.classList.toggle("now", st === "now"); return; }
+  const fill = st === "past" ? "var(--gold)" : st === "now" ? "var(--ember)" : "rgba(11,7,8,.6)";
+  const stroke = st === "future" ? "rgba(237,228,210,.42)" : "transparent";
+  const set = n => { n.style.fill = fill; n.style.stroke = stroke; n.style.strokeWidth = "1"; };
+  node.tagName === "g" ? [...node.children].forEach(set) : set(node);
+  node.style.filter = st === "now" ? "drop-shadow(0 0 6px rgba(229,67,47,.9))" : st === "past" ? "drop-shadow(0 0 3px rgba(214,174,98,.5))" : "none";
+}
+function updateStrip(cur){
+  const sec = secOf(cur);
+  if (sec !== stripSec) drawStrip(sec);
+  for (const id in stripNodes){ const { node, t } = stripNodes[id]; paint(node, t, stateOf(id, cur)); }
+  const c = stripNodes[cur];
+  if (c){ marker.style.transform = `translate(${c.cx}px,${t0y(c.t)}px)`; halo.style.transform = `translate(${c.cx}px,0)`; }
+}
+const t0y = t => t === "link" ? 16 : t === "L" ? 13 : t === "cross" ? 10 : 15;
+
+/* ───── the whole rosary (map) ───── */
+const mapSvg = $("#mapSvg");
+let mapNodes = {};
+function drawMap(){
+  mapSvg.innerHTML = ""; mapNodes = {};
+  const defs = el("defs", {}, mapSvg);
+  const f = el("filter", { id:"mblur", x:"-100%", y:"-100%", width:"300%", height:"300%" }, defs); el("feGaussianBlur", { stdDeviation:"4" }, f);
+  const cx = 150, cy = 140, Rr = 112;
+  el("circle", { cx, cy, r:Rr, fill:"none", stroke:"rgba(237,228,210,.22)", "stroke-dasharray":"2.5 2.5" }, mapSvg);
+  const seq = [["gap",1.8]];
+  for (let d = 1; d <= 5; d++){ if (d > 1) seq.push([`d${d}-of`,1.8,"L"]); for (let k = 1; k <= 10; k++) seq.push([`d${d}-hm${k}`,1,"s"]); }
+  seq.push(["gap",1.8]);
+  const tot = seq.reduce((a, s) => a + s[1], 0);
+  let acc = 0; const medalY = cy + Rr;
+  el("path", { d:`M${cx} ${medalY}V${medalY+128}`, stroke:"rgba(237,228,210,.22)", "stroke-dasharray":"2.5 2.5" }, mapSvg);
+  const add = (id, x, y, type) => {
+    let n;
+    if (type === "medal") n = el("path", { class:"mb", d:`M${x} ${y-10}L${x+8} ${y}L${x} ${y+10}L${x-8} ${y}Z` }, mapSvg);
+    else if (type === "cross"){ n = el("g", { class:"mb" }, mapSvg); miniCross(n, x, y, .9); }
+    else n = el("circle", { class:"mb", cx:x, cy:y, r: type === "L" ? 6 : 4 }, mapSvg);
+    const hit = el("circle", { cx:x, cy:y, r:11, fill:"transparent", style:"cursor:pointer" }, mapSvg);
+    hit.addEventListener("click", () => { if (id in ORDER){ closeSheets(); jump(ORDER[id]); } });
+    mapNodes[id] = { node:n, t:type, x, y };
+  };
+  seq.forEach(([id, size, type]) => {
+    const a = Math.PI/2 + (acc + size/2) / tot * Math.PI * 2; acc += size;
+    if (id === "gap") return;
+    add(id, cx + Math.cos(a)*Rr, cy + Math.sin(a)*Rr, type);
+  });
+  for (let d = 1; d <= 5; d++){
+    const i = seq.findIndex(s => s[0] === `d${d}-hm5`);
+    let a2 = 0; for (let j = 0; j <= i; j++) a2 += seq[j][1];
+    const a = Math.PI/2 + a2 / tot * Math.PI * 2;
+    const tx = el("text", { x: cx + Math.cos(a)*(Rr-24), y: cy + Math.sin(a)*(Rr-24) + 5, "text-anchor":"middle", fill:"var(--ash)", "font-family":"IM Fell English SC, Georgia, serif", "font-size":"13", "letter-spacing":"1" }, mapSvg);
+    tx.textContent = ROMAN[d-1];
+  }
+  add("medal", cx, medalY, "medal");
+  add("d1-of", cx, medalY + 24, "L");
+  add("p-hm3", cx, medalY + 44, "s"); add("p-hm2", cx, medalY + 58, "s"); add("p-hm1", cx, medalY + 72, "s");
+  add("p-of", cx, medalY + 92, "L");
+  add("cross", cx, medalY + 124, "cross");
+  const t = el("text", { x:cx, y:cy + 6, "text-anchor":"middle", fill:"var(--bone)", "font-family":"UnifrakturMaguntia, serif", "font-size":"30" }, mapSvg);
+  t.textContent = "Ave";
+}
+function paintMap(){
+  const cur = steps[idx].bead;
+  for (const id in mapNodes){
+    const { node, t } = mapNodes[id];
+    let ref = id === "cross" && cur === "cross-end" ? "cross-end" : id;
+    paint(node, t, id === "cross" && cur === "cross-end" ? "now" : stateOf(ref, cur));
+  }
+  const s = steps[idx];
+  $("#mapLegend").textContent = `You are at: ${s.sub}. Tap any bead to go there.`;
+}
+
+/* ───── screens ───── */
+const scrs = { threshold:$("#threshold"), nave:$("#nave"), amen:$("#amen") };
+function to(name){
+  for (const k in scrs){ scrs[k].classList.toggle("is-active", k === name); }
+  scrs.threshold.classList.toggle("leaving", name !== "threshold");
+  screen = name;
+  Atmos.setIntensity(name === "threshold" ? .25 : 1);
+  if (name === "nave") wake(true); else wake(false);
+}
+let lock = null;
+async function wake(on){
+  try{
+    if (on && "wakeLock" in navigator && !lock){ lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => lock = null); }
+    if (!on && lock){ await lock.release(); lock = null; }
+  }catch(e){ lock = null; }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && screen === "nave") wake(true); });
+function finish(){
+  store.set("resume", { d: dateKey, set: setKey, id: "end", done: true });
+  const t = (today + 1) % 7;
+  $("#amenNote").textContent = `Tomorrow is ${DAY_NAMES[t][1]}: the ${SETS[DAY_SET[t]].name} Mysteries.`;
+  to("amen");
+}
+function applySet(keepId){
+  const S = SETS[setKey];
+  document.documentElement.style.setProperty("--glow", S.glow);
+  const c = S.glow.split(" ").map(Number), base = [150,16,22];
+  Atmos.setGlow(base.map((b, i) => Math.round(b*.55 + c[i]*.45)).join(" "));
+  $("#thDay").textContent = `${DAY_NAMES[today][0]} · ${DAY_NAMES[today][1].toLowerCase()}`;
+  $("#thSet").textContent = `The ${S.name} Mysteries`;
+  $("#thList").innerHTML = S.m.map(m => `<li>${m[0].replace(/^The /, "")}</li>`).join("");
+  rebuild(keepId); stripSec = null;
+  refreshResume();
+}
+function refreshResume(){
+  const r = store.get("resume", null), b = $("#btnResume");
+  if (r && r.d === dateKey && r.set === setKey && !r.done && r.id !== "sign"){
+    const j = steps.findIndex(s => s.id === r.id);
+    if (j > 0){ b.hidden = false; b.textContent = `Continue · ${steps[j].sub}`; b.dataset.i = j; return; }
+  }
+  b.hidden = true;
+}
+
+/* ───── sheets ───── */
+const scrim = $("#scrim");
+function openSheet(id){
+  closeSheets(true);
+  if (id === "sheetMap"){ drawMap(); paintMap(); }
+  const sh = $("#" + id); sh.classList.add("open"); sh.setAttribute("aria-hidden", "false"); scrim.classList.add("open");
+  setTimeout(() => { const b = sh.querySelector("button"); b && b.focus({ preventScroll:true }); }, 350);
+}
+function closeSheets(silent){
+  document.querySelectorAll(".sheet.open").forEach(s => { s.classList.remove("open"); s.setAttribute("aria-hidden", "true"); });
+  if (!silent) scrim.classList.remove("open");
+}
+scrim.addEventListener("click", () => closeSheets());
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => closeSheets()));
+
+function buildOpts(){
+  const box = $("#optList"); box.innerHTML = ""; let sec = "";
+  OPTIONS.forEach(o => {
+    if (o.sec !== sec){ sec = o.sec; const h = document.createElement("p"); h.className = "sec"; h.textContent = sec; box.appendChild(h); }
+    const row = document.createElement("div"); row.className = "opt";
+    row.innerHTML = `<div><b>${o.t}</b>${o.d ? `<span>${o.d}</span>` : ""}</div><button type="button" class="switch" role="switch" id="opt-${o.k}" aria-label="${o.t}" aria-checked="${opts[o.k]}"></button>`;
+    row.querySelector("button").addEventListener("click", e => {
+      opts[o.k] = !opts[o.k]; e.currentTarget.setAttribute("aria-checked", opts[o.k]);
+      store.set("opts", opts);
+      const id = steps[idx] && steps[idx].id;
+      rebuild(id); refreshResume();
+      if (screen === "nave") show(true);
+    });
+    box.appendChild(row);
+  });
+  document.querySelectorAll("#sizes button").forEach(b => {
+    b.setAttribute("aria-pressed", String(Number(b.dataset.s) === fs));
+    b.onclick = () => { fs = Number(b.dataset.s); store.set("fs", fs); document.documentElement.style.setProperty("--fs", fs); document.querySelectorAll("#sizes button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+  });
+}
+function buildSets(){
+  const box = $("#setList"); box.innerHTML = "";
+  ["joyful","sorrowful","glorious","luminous"].forEach(k => {
+    const S = SETS[k], b = document.createElement("button");
+    b.type = "button"; b.className = "set"; b.setAttribute("aria-pressed", String(k === setKey));
+    b.innerHTML = `<span class="dot"></span><b>The ${S.name} Mysteries</b><span>${S.days}${k === DAY_SET[today] ? " · today" : ""}</span>`;
+    b.addEventListener("click", () => {
+      setKey = k; override = k === DAY_SET[today] ? null : k;
+      store.set("override", override ? { d: dateKey, set: k } : null);
+      const id = steps[idx] && steps[idx].id;
+      applySet(id); buildSets();
+      if (screen === "nave") show(true);
+    });
+    box.appendChild(b);
+  });
+}
+
+/* ───── input ───── */
+$("#btnBegin").addEventListener("click", () => { idx = 0; show(true); to("nave"); });
+$("#btnResume").addEventListener("click", e => { idx = Number(e.currentTarget.dataset.i) || 0; show(true); to("nave"); });
+$("#btnHome").addEventListener("click", () => { refreshResume(); to("threshold"); });
+$("#btnReturn").addEventListener("click", () => { refreshResume(); to("threshold"); });
+$("#btnAgain").addEventListener("click", () => { idx = 0; show(true); to("nave"); });
+const nextBtn = $("#btnNext");
+nextBtn.addEventListener("click", e => {
+  const r = nextBtn.getBoundingClientRect();
+  nextBtn.style.setProperty("--px", ((e.clientX || r.left + r.width/2) - r.left) / r.width * 100 + "%");
+  nextBtn.classList.add("flash"); requestAnimationFrame(() => requestAnimationFrame(() => nextBtn.classList.remove("flash")));
+  go(1);
+});
+$("#btnPrev").addEventListener("click", () => go(-1));
+$("#btnMap").addEventListener("click", () => openSheet("sheetMap"));
+$("#btnSets").addEventListener("click", () => openSheet("sheetSets"));
+$("#btnOpts1").addEventListener("click", () => openSheet("sheetOpts"));
+$("#btnOpts2").addEventListener("click", () => openSheet("sheetOpts"));
+
+let p0 = null;
+const frame = $("#frame");
+frame.addEventListener("pointerdown", e => { p0 = { x:e.clientX, y:e.clientY, t:performance.now(), st: page.scrollTop }; });
+frame.addEventListener("pointerup", e => {
+  if (!p0) return;
+  const dx = e.clientX - p0.x, dy = e.clientY - p0.y, dt = performance.now() - p0.t, scrolled = Math.abs(page.scrollTop - p0.st) > 4;
+  p0 = null;
+  if (scrolled) return;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4){ go(dx < 0 ? 1 : -1); return; }
+  if (Math.abs(dx) < 8 && Math.abs(dy) < 8 && dt < 450 && !window.getSelection().toString()) go(1);
+});
+frame.addEventListener("pointercancel", () => p0 = null);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape"){ closeSheets(); return; }
+  if (screen !== "nave" || document.querySelector(".sheet.open")) return;
+  if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown"){ e.preventDefault(); go(1); }
+  if (e.key === "ArrowLeft" || e.key === "PageUp"){ e.preventDefault(); go(-1); }
+});
+
+/* ───── start ───── */
+document.documentElement.style.setProperty("--fs", fs);
+buildCross($("#bigCross")); buildCross($("#amenCross"));
+Atmos.snapGlow("150 16 22");
+applySet(null);
+buildOpts(); buildSets();
+Atmos.setIntensity(.25);
+})();
+
+/* installable app */
+(function(){
+  let deferred = null; const btn = document.getElementById("btnInstall");
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; btn.hidden = false; });
+  btn.addEventListener("click", async () => { if (!deferred) return; deferred.prompt(); try{ await deferred.userChoice; }catch(e){} deferred = null; btn.hidden = true; });
+  addEventListener("appinstalled", () => { btn.hidden = true; });
+  if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+})();
+</script>
+</body>
+</html>
